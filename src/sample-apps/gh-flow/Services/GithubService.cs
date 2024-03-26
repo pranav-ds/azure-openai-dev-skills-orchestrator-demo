@@ -10,70 +10,17 @@ namespace Microsoft.AI.DevTeam;
 public class GithubService : IManageGithub
 {
     private readonly GitHubClient _ghClient;
-    private readonly AzureOptions _azSettings;
     private readonly ILogger<GithubService> _logger;
     private readonly HttpClient _httpClient;
 
-    public GithubService(IOptions<AzureOptions> azOptions, GitHubClient ghClient, ILogger<GithubService> logger, HttpClient httpClient)
+    public GithubService(GitHubClient ghClient, ILogger<GithubService> logger, HttpClient httpClient)
     {
         _ghClient = ghClient;
-        _azSettings = azOptions.Value;
         _logger = logger;
         _httpClient = httpClient;
     }
 
-    public async Task CommitToBranch(string org, string repo, long parentNumber, long issueNumber, string rootDir, string branch)
-    {
-        try
-        {
-            var connectionString = $"DefaultEndpointsProtocol=https;AccountName={_azSettings.FilesAccountName};AccountKey={_azSettings.FilesAccountKey};EndpointSuffix=core.windows.net";
-
-            var dirName = $"{rootDir}/{org}-{repo}/{parentNumber}/{issueNumber}";
-            var share = new ShareClient(connectionString, _azSettings.FilesShareName);
-            var directory = share.GetDirectoryClient(dirName);
-
-            var remaining = new Queue<ShareDirectoryClient>();
-            remaining.Enqueue(directory);
-            while (remaining.Count > 0)
-            {
-                var dir = remaining.Dequeue();
-                await foreach (var item in dir.GetFilesAndDirectoriesAsync())
-                {
-                    if (!item.IsDirectory && item.Name != "run.sh") // we don't want the generated script in the PR
-                    {
-                        try
-                        {
-                            var file = dir.GetFileClient(item.Name);
-                            var filePath = file.Path.Replace($"{_azSettings.FilesShareName}/", "")
-                                                    .Replace($"{dirName}/", "");
-                            var fileStream = await file.OpenReadAsync();
-                            using (var reader = new StreamReader(fileStream, Encoding.UTF8))
-                            {
-                                var value = reader.ReadToEnd();
-
-                                await _ghClient.Repository.Content.CreateFile(
-                                        org, repo, filePath,
-                                        new CreateFileRequest($"Commit message", value, branch)); // TODO: add more meaningfull commit message
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, $"Error while uploading file {item.Name}");
-                        }
-                    }
-                    else if (item.IsDirectory)
-                    {
-                        remaining.Enqueue(dir.GetSubdirectoryClient(item.Name));
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error committing to branch");
-             throw;
-        }
-    }
+    
 
     public async Task CreateBranch(string org, string repo, string branch)
     {
@@ -208,7 +155,6 @@ public interface IManageGithub
     Task<int> CreateIssue(string org, string repo, string input, string function, long parentNumber);
     Task CreatePR(string org, string repo, long number, string branch);
     Task CreateBranch(string org, string repo, string branch);
-    Task CommitToBranch(string org, string repo, long parentNumber, long issueNumber, string rootDir, string branch);
 
     Task PostComment(string org, string repo, long issueNumber, string comment);
     Task<IEnumerable<FileResponse>> GetFiles(string org, string repo, string branch, Func<RepositoryContent, bool> filter);

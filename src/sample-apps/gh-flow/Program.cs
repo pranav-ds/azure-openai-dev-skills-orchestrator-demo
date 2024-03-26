@@ -14,7 +14,7 @@ using Microsoft.KernelMemory;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<WebhookEventProcessor, GithubWebHookProcessor>();
 builder.Services.AddTransient(CreateKernel);
-builder.Services.AddSingleton<IKernelMemory>(CreateMemory);
+//builder.Services.AddSingleton<IKernelMemory>(CreateMemory);
 builder.Services.AddHttpClient();
 
 builder.Services.AddSingleton(s =>
@@ -26,26 +26,14 @@ builder.Services.AddSingleton(s =>
     return client;
 });
 
-
-builder.Services.AddAzureClients(clientBuilder =>
-{
-    clientBuilder.UseCredential(new DefaultAzureCredential());
-    clientBuilder.AddArmClient(default);
-});
-
 builder.Services.AddSingleton<GithubAuthService>();
 
-builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddOptions<GithubOptions>()
     .Configure<IConfiguration>((settings, configuration) =>
     {
         configuration.GetSection("GithubOptions").Bind(settings);
     });
-builder.Services.AddOptions<AzureOptions>()
-    .Configure<IConfiguration>((settings, configuration) =>
-    {
-        configuration.GetSection("AzureOptions").Bind(settings);
-    });
+
 builder.Services.AddOptions<OpenAIOptions>()
     .Configure<IConfiguration>((settings, configuration) =>
     {
@@ -62,9 +50,8 @@ builder.Services.AddOptions<ServiceOptions>()
         configuration.GetSection("ServiceOptions").Bind(settings);
     });
 
-builder.Services.AddSingleton<IManageAzure, AzureService>();
 builder.Services.AddSingleton<IManageGithub, GithubService>();
-builder.Services.AddSingleton<IAnalyzeCode, CodeAnalyzer>();
+builder.Services.AddSingleton<IGetContext, ContextGetter>();
 
 
 builder.Host.UseOrleans(siloBuilder =>
@@ -96,30 +83,30 @@ app.Map("/dashboard", x => x.UseOrleansDashboard());
 
 app.Run();
 
-static IKernelMemory CreateMemory(IServiceProvider provider)
-{
-    var qdrantConfig = provider.GetService<IOptions<QdrantOptions>>().Value;
-    var openAiConfig = provider.GetService<IOptions<OpenAIOptions>>().Value;
-    return new KernelMemoryBuilder()
-            .WithQdrantMemoryDb(qdrantConfig.Endpoint)
-            .WithAzureOpenAITextGeneration(new AzureOpenAIConfig
-            {
-                APIType = AzureOpenAIConfig.APITypes.ChatCompletion,
-                Endpoint = openAiConfig.Endpoint,
-                Deployment = openAiConfig.DeploymentOrModelId,
-                Auth = AzureOpenAIConfig.AuthTypes.APIKey,
-                APIKey = openAiConfig.ApiKey
-            })
-            .WithAzureOpenAITextEmbeddingGeneration(new AzureOpenAIConfig
-            {
-                APIType = AzureOpenAIConfig.APITypes.EmbeddingGeneration,
-                Endpoint = openAiConfig.Endpoint,
-                Deployment =openAiConfig.EmbeddingDeploymentOrModelId,
-                Auth = AzureOpenAIConfig.AuthTypes.APIKey,
-               APIKey = openAiConfig.ApiKey
-            })
-            .Build<MemoryServerless>();
-}
+// static IKernelMemory CreateMemory(IServiceProvider provider)
+// {
+//     var qdrantConfig = provider.GetService<IOptions<QdrantOptions>>().Value;
+//     var openAiConfig = provider.GetService<IOptions<OpenAIOptions>>().Value;
+//     return new KernelMemoryBuilder()
+//             .WithQdrantMemoryDb(qdrantConfig.Endpoint)
+//             .WithAzureOpenAITextGeneration(new AzureOpenAIConfig
+//             {
+//                 APIType = AzureOpenAIConfig.APITypes.ChatCompletion,
+//                 Endpoint = openAiConfig.Endpoint,
+//                 Deployment = openAiConfig.DeploymentOrModelId,
+//                 Auth = AzureOpenAIConfig.AuthTypes.APIKey,
+//                 APIKey = openAiConfig.ApiKey
+//             })
+//             .WithAzureOpenAITextEmbeddingGeneration(new AzureOpenAIConfig
+//             {
+//                 APIType = AzureOpenAIConfig.APITypes.EmbeddingGeneration,
+//                 Endpoint = openAiConfig.Endpoint,
+//                 Deployment =openAiConfig.EmbeddingDeploymentOrModelId,
+//                 Auth = AzureOpenAIConfig.AuthTypes.APIKey,
+//                APIKey = openAiConfig.ApiKey
+//             })
+//             .Build<MemoryServerless>();
+// }
 
 static Kernel CreateKernel(IServiceProvider provider)
 {

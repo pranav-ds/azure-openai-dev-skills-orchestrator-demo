@@ -13,16 +13,12 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
 {
     private readonly ILogger<GithubWebHookProcessor> _logger;
     private readonly IClusterClient _client;
-    private readonly IManageGithub _ghService;
-    private readonly IManageAzure _azService;
 
     public GithubWebHookProcessor(ILogger<GithubWebHookProcessor> logger,
-    IClusterClient client, IManageGithub ghService, IManageAzure azService)
+    IClusterClient client)
     {
         _logger = logger;
         _client = client;
-        _ghService = ghService;
-        _azService = azService;
     }
     protected override async Task ProcessIssuesWebhookAsync(WebhookHeaders headers, IssuesEvent issuesEvent, IssuesAction action)
     {
@@ -39,25 +35,25 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
                                     .Select(l => l.Name.Split('.'))
                                     .Where(parts => parts.Length == 2)
                                     .ToDictionary(parts => parts[0], parts => parts[1]);
-            var skillName = labels.Keys.Where(k=>k != "Parent").FirstOrDefault();
+            var skillName = labels.Keys.Where(k => k != "Parent").FirstOrDefault();
             long? parentNumber = labels.ContainsKey("Parent") ? long.Parse(labels["Parent"]) : null;
 
             var suffix = $"{org}-{repo}";
             if (issuesEvent.Action == IssuesAction.Opened)
             {
                 _logger.LogInformation("Processing HandleNewAsk");
-                await HandleNewAsk(issueNumber,parentNumber, skillName, labels[skillName], suffix, input, org, repo);
+                await HandleNewAsk(issueNumber, parentNumber, skillName, labels[skillName], suffix, input, org, repo);
             }
             else if (issuesEvent.Action == IssuesAction.Closed && issuesEvent.Issue.User.Type.Value == UserType.Bot)
             {
                 _logger.LogInformation("Processing HandleClosingIssue");
-                await HandleClosingIssue(issueNumber, parentNumber,skillName, labels[skillName], suffix, org, repo);
+                await HandleClosingIssue(issueNumber, parentNumber, skillName, labels[skillName], suffix, org, repo);
             }
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Processing issue event");
-             throw;
+            _logger.LogError(ex, "Processing issue event");
+            throw;
         }
     }
 
@@ -78,7 +74,7 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
                                     .Select(l => l.Name.Split('.'))
                                     .Where(parts => parts.Length == 2)
                                     .ToDictionary(parts => parts[0], parts => parts[1]);
-            var skillName = labels.Keys.Where(k=>k != "Parent").FirstOrDefault();
+            var skillName = labels.Keys.Where(k => k != "Parent").FirstOrDefault();
             long? parentNumber = labels.ContainsKey("Parent") ? long.Parse(labels["Parent"]) : null;
             var suffix = $"{org}-{repo}";
             // we only respond to non-bot comments
@@ -92,12 +88,12 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
             _logger.LogError(ex, "Processing issue comment event");
             throw;
         }
-       
+
     }
 
     private async Task HandleClosingIssue(long issueNumber, long? parentNumber, string skillName, string functionName, string suffix, string org, string repo)
     {
-        var streamProvider = _client.GetStreamProvider("StreamProvider");
+        /*var streamProvider = _client.GetStreamProvider("StreamProvider");
         var streamId = StreamId.Create(Consts.MainNamespace, suffix+issueNumber.ToString());
         var stream = streamProvider.GetStream<Event>(streamId);
         var eventType = (skillName, functionName) switch
@@ -119,7 +115,7 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
         {
             Type = eventType,
             Data = data
-        });
+        }); */
     }
 
     private async Task HandleNewAsk(long issueNumber, long? parentNumber, string skillName, string functionName, string suffix, string input, string org, string repo)
@@ -128,18 +124,15 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
         {
             _logger.LogInformation("Handling new ask");
             var streamProvider = _client.GetStreamProvider("StreamProvider");
-            var streamId = StreamId.Create(Consts.MainNamespace, suffix+issueNumber.ToString());
+            var streamId = StreamId.Create(Consts.MainNamespace, suffix + issueNumber.ToString());
             var stream = streamProvider.GetStream<Event>(streamId);
 
             var eventType = (skillName, functionName) switch
             {
-                ("Do", "It") => nameof(GithubFlowEventType.NewAsk),
-                ("PM","Readme") => nameof(GithubFlowEventType.ReadmeRequested),
-                ("DevLead","Plan") => nameof(GithubFlowEventType.DevPlanRequested),
-                 ("Developer","Implement")  => nameof(GithubFlowEventType.CodeGenerationRequested),
-                _ => nameof(GithubFlowEventType.NewAsk)
+                ("code-reviewer", "repo") => nameof(GithubFlowEventType.ReviewRequested),
+                _ => nameof(GithubFlowEventType.ReviewRequested)
             };
-             var data = new Dictionary<string, string>
+            var data = new Dictionary<string, string>
             {
                 { "org", org },
                 { "repo", repo },
@@ -155,8 +148,8 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Handling new ask");
-             throw;
+            _logger.LogError(ex, "Handling new ask");
+            throw;
         }
     }
 }
