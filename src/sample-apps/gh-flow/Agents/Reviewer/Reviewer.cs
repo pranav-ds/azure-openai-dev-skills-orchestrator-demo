@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AI.Agents.Abstractions;
 using Microsoft.AI.DevTeam.Events;
 using Microsoft.KernelMemory;
@@ -15,7 +16,7 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
     private readonly Kernel _kernel;
     private readonly ILogger<Reviewer> _logger;
 
-    public Reviewer([PersistentState("state", "messages")] IPersistentState<AgentState<DeveloperState>> state, Kernel kernel, ILogger<Reviewer> logger) 
+    public Reviewer([PersistentState("state", "messages")] IPersistentState<AgentState<DeveloperState>> state, Kernel kernel, ILogger<Reviewer> logger)
     : base(state)
     {
         _kernel = kernel;
@@ -28,11 +29,11 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
         {
             case nameof(GithubFlowEventType.ReviewRequested):
                 {
-                var intent = await ExtractIntent(item.Message);
-                await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
-                {
-                    Type = nameof(GithubFlowEventType.IntentExtracted),
-                    Data = new Dictionary<string, string> {
+                    var intent = await ExtractIntent(item.Message);
+                    await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
+                    {
+                        Type = nameof(GithubFlowEventType.IntentExtracted),
+                        Data = new Dictionary<string, string> {
                             { "org", item.Data["org"] },
                             { "repo", item.Data["repo"] },
                             { "issueNumber", item.Data["issueNumber"] },
@@ -40,24 +41,44 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
                             { "intent", intent}
                         },
                         Message = intent
-                });
+                    });
                 }
                 break;
             case nameof(GithubFlowEventType.ReviewCodeContextAdded):
-                var review = await ReviewCode(item.Data["context"]);
-                await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
                 {
-                    Type = nameof(GithubFlowEventType.CodeReviewCompleted),
-                    Data = new Dictionary<string, string> {
+                    var review = await ReviewCode(item.Data["context"]);
+                    await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
+                    {
+                        Type = nameof(GithubFlowEventType.CodeReviewCompleted),
+                        Data = new Dictionary<string, string> {
                             { "org", item.Data["org"] },
                             { "repo", item.Data["repo"] },
                             { "issueNumber", item.Data["issueNumber"] },
                             { "review", review }
                         },
-                    Message = review
-                });
+                        Message = review
+                    });
+                }
+
                 break;
-            
+            case nameof(GithubFlowEventType.PullRequestDeltaCreated):
+                {
+                    var deltas = JsonSerializer.Deserialize<IEnumerable<FileResponse>>(item.Data["deltas"]);
+                    var review = await ReviewPullRequest(deltas);
+                    await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
+                    {
+                        Type = nameof(GithubFlowEventType.PullRequestReviewCompleted),
+                        Data = new Dictionary<string, string> {
+                            { "org", item.Data["org"] },
+                            { "repo", item.Data["repo"] },
+                            { "issueNumber", item.Data["issueNumber"] },
+                            { "review", review }
+                        },
+                        Message = review
+                    });
+                }
+                break;
+
             default:
                 break;
         }
@@ -67,8 +88,23 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
     {
         try
         {
-            var context = new KernelArguments { ["input"] = AppendChatHistory(ask), ["code"] = ask};
+            var context = new KernelArguments { ["input"] = AppendChatHistory(ask), ["code"] = ask };
             return await CallFunction(ReviewerSkills.Review, context, _kernel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating code");
+            throw;
+        }
+    }
+
+    public async Task<string> ReviewPullRequest(IEnumerable<FileResponse> deltas)
+    {
+        try
+        {
+            var ask = "";// construct from deltas
+            var context = new KernelArguments { ["input"] = AppendChatHistory(ask), ["code"] = ask };
+            return await CallFunction(ReviewerSkills.ReviewPullRequest, context, _kernel);
         }
         catch (Exception ex)
         {
@@ -81,7 +117,7 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
     {
         try
         {
-            var context = new KernelArguments { ["error"] = AppendChatHistory(ask)};
+            var context = new KernelArguments { ["error"] = AppendChatHistory(ask) };
             return await CallFunction(ReviewerSkills.ExtractIntent, context, _kernel);
         }
         catch (Exception ex)

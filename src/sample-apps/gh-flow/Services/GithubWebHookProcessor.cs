@@ -1,10 +1,12 @@
 using Microsoft.AI.Agents.Abstractions;
 using Microsoft.AI.DevTeam;
 using Microsoft.AI.DevTeam.Events;
+using Octokit;
 using Octokit.Webhooks;
 using Octokit.Webhooks.Events;
 using Octokit.Webhooks.Events.IssueComment;
 using Octokit.Webhooks.Events.Issues;
+using Octokit.Webhooks.Events.PullRequest;
 using Octokit.Webhooks.Models;
 using Orleans.Runtime;
 
@@ -57,6 +59,30 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
         }
     }
 
+    protected override async Task ProcessPullRequestWebhookAsync(WebhookHeaders headers, PullRequestEvent pullRequestEvent, PullRequestAction action)
+    {
+        try
+        {
+            _logger.LogInformation("Processing issue event");
+            var org = pullRequestEvent.Repository.Owner.Login;
+            var repo = pullRequestEvent.Repository.Name;
+            var prNumber = pullRequestEvent.PullRequest.Number;
+            var input = pullRequestEvent.PullRequest.Body;
+           
+            var suffix = $"{org}-{repo}";
+            if (pullRequestEvent.Action == PullRequestAction.Opened)
+            {
+                _logger.LogInformation("Processing HandleNewAsk");
+                await HandlePR(prNumber, suffix, input, org, repo);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Processing issue event");
+            throw;
+        }
+    }
+
     protected override async Task ProcessIssueCommentWebhookAsync(
        WebhookHeaders headers,
        IssueCommentEvent issueCommentEvent,
@@ -88,8 +114,9 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
             _logger.LogError(ex, "Processing issue comment event");
             throw;
         }
-
     }
+
+    
 
     private async Task HandleClosingIssue(long issueNumber, long? parentNumber, string skillName, string functionName, string suffix, string org, string repo)
     {
@@ -149,6 +176,35 @@ public sealed class GithubWebHookProcessor : WebhookEventProcessor
         catch (Exception ex)
         {
             _logger.LogError(ex, "Handling new ask");
+            throw;
+        }
+    }
+
+    private async Task HandlePR(long prNumber, string suffix, string input, string org, string repo)
+    {
+        try
+        {
+            _logger.LogInformation("Handling new PR");
+            var streamProvider = _client.GetStreamProvider("StreamProvider");
+            var streamId = StreamId.Create(Consts.MainNamespace, suffix + prNumber.ToString());
+            var stream = streamProvider.GetStream<Event>(streamId);
+
+            var data = new Dictionary<string, string>
+            {
+                { "org", org },
+                { "repo", repo },
+                { "prNumber", prNumber.ToString() }
+            };
+            await stream.OnNextAsync(new Event
+            {
+                Type = nameof(GithubFlowEventType.PullRequestReviewRequested),
+                Message = input,
+                Data = data
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Handling new PR");
             throw;
         }
     }

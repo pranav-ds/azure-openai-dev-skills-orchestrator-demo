@@ -7,6 +7,9 @@ namespace Microsoft.AI.DevTeam.Events
         ReviewRequested,
         IntentExtracted,
         ReviewCodeContextAdded,
-        CodeReviewCompleted
+        CodeReviewCompleted,
+        PullRequestReviewRequested,
+        PullRequestDeltaCreated,
+        PullRequestReviewCompleted
     }
 }

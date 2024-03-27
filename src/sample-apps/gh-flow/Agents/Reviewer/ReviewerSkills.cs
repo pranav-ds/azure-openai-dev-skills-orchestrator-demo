@@ -24,4 +24,13 @@ public static class ReviewerSkills {
         Do not wrap the JSON in any other text, output the JSON format described above, making sure it's a valid JSON.
         Please.
         """;
+    
+     public static string ReviewPullRequest = """
+        You are a expert code reviewer in C++. You have a really strong sense properly intialization on use of variables.
+        Below you'll find the code that I want your opinion on. 
+        {{$code}}
+        Additional information that might be useful:{{$input}}
+
+        Pls provide your opinion on the code and be as specific as possible with relation to the error.
+        """;
 }

@@ -96,6 +96,19 @@ public class GithubService : IManageGithub
         }
     }
 
+     public async Task Post(string org, string repo, long issueNumber, string comment)
+    {
+        try
+        {
+            await _ghClient.Issue.Comment.Create(org, repo, (int)issueNumber, comment);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error posting comment");
+             throw;
+        }
+    }
+
     public async Task<IEnumerable<FileResponse>> GetFiles(string org, string repo, string branch, Func<RepositoryContent, bool> filter)
     {
         try
@@ -114,7 +127,7 @@ public class GithubService : IManageGithub
     {
         try
         {
-            var files = await _ghClient.PullRequest.Files(org, repo, prNumber);
+            var files = await _ghClient.PullRequest.Files(org, repo, (int)prNumber);
             var results = new List<FilePatchResponse>();
             foreach (var file in files)
             {
@@ -171,9 +184,12 @@ public class FileResponse
     public string Content { get; set; }
 }
 
+[GenerateSerializer]
 public class FilePatchResponse
 {
+    [Id(0)]
     public string Patch { get; set; }
+    [Id(1)]
     public string Content { get; set; }
 }
 public interface IManageGithub
