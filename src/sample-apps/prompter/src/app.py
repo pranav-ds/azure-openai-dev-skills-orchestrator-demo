@@ -11,7 +11,7 @@ def home():
         # Get the absolute path of the current script
         script_location = pathlib.Path(__file__).parent.absolute()
         # Construct the absolute path of the file to read
-        file_location = os.path.join(script_location, 'data', 'SensorSuite.cpp')
+        file_location = os.path.join(script_location, '..', 'data', 'SensorSuite.cpp')
 
         with open(file_location, 'r') as file:
             data = file.read()

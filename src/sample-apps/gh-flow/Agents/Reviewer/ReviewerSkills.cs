@@ -7,7 +7,7 @@ public static class ReviewerSkills {
         {{$code}}
         Additional information that might be useful:{{$input}}
 
-        Pls provide your opinion on the code and be as specific as possible.
+        Pls provide your opinion on the code and be as specific as possible with relation to the error.
         """;
 
     public static string ExtractIntent = """

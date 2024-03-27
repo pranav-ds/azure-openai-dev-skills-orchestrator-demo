@@ -6,8 +6,79 @@ For more information, please visit:
 https://opensource.org/licenses/MIT
 */
 
-#include "SensorSuite.hpp"
+/*
+MIT License
+
+Copyright (c) 2024 Pranav Sumanth Doijode
+
+For more information, please visit:
+https://opensource.org/licenses/MIT
+*/
+
 #include <iostream>
+#include <vector>
+#include <thread>
+#include "ProximitySensor.hpp"
+#include "SpeedSensor.hpp"
+
+class Sensor {
+public:
+    Sensor( std::string sensorName,
+            int sensorID,
+            bool sensorUp, 
+            double sensorFrequency, 
+            double conversionFactor, 
+            bool simulateSensor,
+            const std::string& queue_name, 
+            const std::string& exchange_name,
+            const std::string& host,
+            int port);
+    ~Sensor();
+
+    void start();
+    void stop();
+    void publishData(const std::string& data);
+    int getSensorID();
+
+private:
+    std::string sensorName;
+    int sensorID;
+    AmqpClient::Channel::OpenOpts opts;
+    AmqpClient::Channel::ptr_t channel;
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution;
+    std::string queue_name;
+    std::string exchange_name;
+    bool sensorUp;
+    double sensorFrequency; // Units in Hz
+    bool simulateSensor;
+    double conversionFactor;
+    std::mutex mtx;
+};
+
+class ProximitySensor: public Sensor
+{
+public:
+    using Sensor::Sensor;
+    ~ProximitySensor();
+};
+
+// This class initalizes 3 proximity sensors and 1 speed sensor
+class SensorSuite
+{
+public:
+    SensorSuite();
+    ~SensorSuite();
+    void instantiateSensors();
+    void start();
+    void stop();
+    std::vector<std::shared_ptr<ProximitySensor>> proximitySensors;
+    std::shared_ptr<SpeedSensor> speedSensor;
+
+private:
+    std::vector<std::thread> sensorThreads;
+};
+
 
 SensorSuite::SensorSuite() {
     
