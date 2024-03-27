@@ -63,8 +63,8 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
                 break;
             case nameof(GithubFlowEventType.PullRequestDeltaCreated):
                 {
-                    var deltas = JsonSerializer.Deserialize<IEnumerable<FileResponse>>(item.Data["deltas"]);
-                    var review = await ReviewPullRequest(deltas);
+                    var deltas = JsonSerializer.Deserialize<IEnumerable<FilePatchResponse>>(item.Data["deltas"]);
+                    var review = await ReviewPullRequest(deltas, item.Message);
                     await PublishEvent(Consts.MainNamespace, this.GetPrimaryKeyString(), new Event
                     {
                         Type = nameof(GithubFlowEventType.PullRequestReviewCompleted),
@@ -98,12 +98,13 @@ public class Reviewer : AiAgent<DeveloperState>, IReviewApps
         }
     }
 
-    public async Task<string> ReviewPullRequest(IEnumerable<FileResponse> deltas)
+    public async Task<string> ReviewPullRequest(IEnumerable<FilePatchResponse> deltas, string input)
     {
         try
         {
-            var ask = "";// construct from deltas
-            var context = new KernelArguments { ["input"] = AppendChatHistory(ask), ["code"] = ask };
+            var items = deltas.Select(del => $"======= File content ======= \n {del.Content} \n ======= Patch ======= \n {del.Patch}");
+            var code = string.Join("\n", items);
+            var context = new KernelArguments { ["input"] = input, ["code"] = code };
             return await CallFunction(ReviewerSkills.ReviewPullRequest, context, _kernel);
         }
         catch (Exception ex)

@@ -37,7 +37,8 @@ public class Hubber : Agent
                             { "repo", item.Data["repo"] },
                             { "issueNumber", item.Data["issueNumber"] },
                             { "deltas",jsonDeltas }
-                        }
+                        },
+                    Message = item.Message
                 });
                 break;
             default:
