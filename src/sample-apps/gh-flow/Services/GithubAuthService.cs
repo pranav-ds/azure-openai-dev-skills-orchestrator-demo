@@ -19,7 +19,7 @@ public class GithubAuthService
 
     public string GenerateJwtToken(string appId, string appKey, int minutes)
     {
-        using var rsa = RSA.Create();
+        var rsa = RSA.Create();
         rsa.ImportFromPem(appKey);
         var securityKey = new RsaSecurityKey(rsa);
 
@@ -37,14 +37,14 @@ public class GithubAuthService
         var token = new JwtSecurityToken(
             issuer: appId,
             claims: claims,
-            expires: DateTime.Now.AddMinutes(10),
+            expires: now.AddMinutes(10),
             signingCredentials: credentials
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
     
-    public async Task<GitHubClient> GetGitHubClient()
+    public GitHubClient GetGitHubClient()
     {
         try
         {
@@ -53,7 +53,7 @@ public class GithubAuthService
             {
                 Credentials = new Credentials(jwtToken, AuthenticationType.Bearer)
             };
-            var response = await appClient.GitHubApps.CreateInstallationToken(_githubSettings.InstallationId);
+            var response = appClient.GitHubApps.CreateInstallationToken(_githubSettings.InstallationId).Result;
             return new GitHubClient(new ProductHeaderValue($"SK-DEV-APP-Installation{_githubSettings.InstallationId}"))
             {
                 Credentials = new Credentials(response.Token)

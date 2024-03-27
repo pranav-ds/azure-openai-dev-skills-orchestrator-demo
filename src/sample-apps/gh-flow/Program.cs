@@ -6,8 +6,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Octokit.Webhooks;
 using Octokit.Webhooks.AspNetCore;
-using Azure.Identity;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.KernelMemory;
 
@@ -22,7 +20,7 @@ builder.Services.AddSingleton(s =>
     var ghOptions = s.GetService<IOptions<GithubOptions>>();
     var logger = s.GetService<ILogger<GithubAuthService>>();
     var ghService = new GithubAuthService(ghOptions, logger);
-    var client = ghService.GetGitHubClient().Result;
+    var client = ghService.GetGitHubClient();
     return client;
 });
 

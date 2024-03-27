@@ -8,12 +8,12 @@ namespace Microsoft.AI.DevTeam;
 [ImplicitStreamSubscription(Consts.MainNamespace)]
 public class Hubber : Agent
 {
-     protected override string Namespace => Consts.MainNamespace;
+    protected override string Namespace => Consts.MainNamespace;
     private readonly IManageGithub _ghService;
 
     public Hubber(IManageGithub ghService)
     {
-        _ghService = ghService;
+       _ghService = ghService;
     }
 
     public override async Task HandleEvent(Event item, StreamSequenceToken? token)
@@ -31,6 +31,6 @@ public class Hubber : Agent
 
     public async Task PostComment(string org, string repo, long issueNumber, string comment)
     {
-        await _ghService.PostComment(org, repo, issueNumber, comment);
+       await _ghService.PostComment(org, repo, issueNumber, comment);
     }
 }
