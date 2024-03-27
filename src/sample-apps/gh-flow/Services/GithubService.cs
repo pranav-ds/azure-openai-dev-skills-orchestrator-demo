@@ -20,8 +20,6 @@ public class GithubService : IManageGithub
         _httpClient = httpClient;
     }
 
-    
-
     public async Task CreateBranch(string org, string repo, string branch)
     {
         try
@@ -112,6 +110,29 @@ public class GithubService : IManageGithub
         }
     }
 
+    public async Task<IEnumerable<FilePatchResponse>> GetPatches(string org, string repo, int prNumber)
+    {
+        try
+        {
+            var files = await _ghClient.PullRequest.Files(org, repo, prNumber);
+            var results = new List<FilePatchResponse>();
+            foreach (var file in files)
+            {
+                    var content = await _httpClient.GetStringAsync(file.RawUrl);
+                   results.Add(new FilePatchResponse {
+                    Content = content,
+                    Patch = file.Patch
+                   });  
+            }
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting files");
+             throw;
+        }
+    }
+
     private async Task<IEnumerable<FileResponse>> CollectFiles(string org, string repo, string branch, IReadOnlyList<RepositoryContent> items, Func<RepositoryContent, bool> filter)
     {
         try
@@ -150,6 +171,11 @@ public class FileResponse
     public string Content { get; set; }
 }
 
+public class FilePatchResponse
+{
+    public string Patch { get; set; }
+    public string Content { get; set; }
+}
 public interface IManageGithub
 {
     Task<int> CreateIssue(string org, string repo, string input, string function, long parentNumber);
@@ -159,4 +185,5 @@ public interface IManageGithub
     Task PostComment(string org, string repo, long issueNumber, string comment);
     Task<IEnumerable<FileResponse>> GetFiles(string org, string repo, string branch, Func<RepositoryContent, bool> filter);
     Task<string> GetMainLanguage(string org, string repo);
+    Task<IEnumerable<FilePatchResponse>> GetPatches(string org, string repo, int prNumber);
 }
