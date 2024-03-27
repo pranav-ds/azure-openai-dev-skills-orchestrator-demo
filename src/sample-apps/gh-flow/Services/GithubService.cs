@@ -131,7 +131,8 @@ public class GithubService : IManageGithub
             var results = new List<FilePatchResponse>();
             foreach (var file in files)
             {
-                    var content = await _httpClient.GetStringAsync(file.RawUrl);
+                   var fileContents = await _ghClient.Repository.Content.GetAllContentsByRef(org, repo, file.FileName, file.Sha);
+                   var content = fileContents.Count > 0 ? fileContents.First().Content : "";
                    results.Add(new FilePatchResponse {
                     Content = content,
                     Patch = file.Patch
